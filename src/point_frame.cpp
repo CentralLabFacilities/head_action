@@ -56,6 +56,8 @@
 #include <control_msgs/QueryTrajectoryState.h>
 #include <control_msgs/JointTrajectoryControllerState.h>
 
+#include <mutex>
+
 class ControlHead
 {
 private:
@@ -77,6 +79,7 @@ private:
   ros::ServiceClient cli_query_traj_;
   ros::Timer watchdog_timer_;
 
+  std::mutex goal_mutex_;
   PHAS action_server_;
   bool has_active_goal_;
   GoalHandle active_goal_;
@@ -402,15 +405,20 @@ public:
     goal_error_ = std::max(goal_error_, success_angle_threshold_);
     ROS_DEBUG_STREAM("the goal will terminate when error is: " << goal_error_*180.0/M_PI << " degrees => " << goal_error_ << " radians");
 
-    if (has_active_goal_)
     {
-      active_goal_.setCanceled();
-      has_active_goal_ = false;
-    }
 
-    gh.setAccepted();
-    active_goal_ = gh;
-    has_active_goal_ = true;
+      std::scoped_lock lock(goal_mutex_);
+      if (has_active_goal_)
+      {
+        active_goal_.setCanceled();
+        has_active_goal_ = false;
+      }
+
+      gh.setAccepted();
+      active_goal_ = gh;
+      has_active_goal_ = true;
+
+    }
 
     // Computes the duration of the movement.
     ros::Duration min_duration(0.01);
@@ -456,6 +464,8 @@ public:
   {
     const ros::Time now = ros::Time::now();
 
+    std::scoped_lock lock(goal_mutex_);
+
     // Aborts the active goal if the controller does not appear to be active.
     if (has_active_goal_)
     {
@@ -488,6 +498,7 @@ public:
 
   void cancelCB(GoalHandle gh)
   {
+    std::scoped_lock lock(goal_mutex_);
     if (active_goal_ == gh)
     {
       // Stops the controller.
@@ -506,6 +517,8 @@ public:
     last_controller_state_ = msg;
     const ros::Time now = ros::Time::now();
 
+    
+    std::scoped_lock lock(goal_mutex_);
     if (!has_active_goal_)
       return;
 
