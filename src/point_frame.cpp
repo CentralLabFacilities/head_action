@@ -407,7 +407,7 @@ public:
 
     {
 
-      std::scoped_lock lock(goal_mutex_);
+      std::lock_guard lock(goal_mutex_);
       if (has_active_goal_)
       {
         active_goal_.setCanceled();
@@ -464,7 +464,7 @@ public:
   {
     const ros::Time now = ros::Time::now();
 
-    std::scoped_lock lock(goal_mutex_);
+    std::lock_guard lock(goal_mutex_);
 
     // Aborts the active goal if the controller does not appear to be active.
     if (has_active_goal_)
@@ -498,7 +498,7 @@ public:
 
   void cancelCB(GoalHandle gh)
   {
-    std::scoped_lock lock(goal_mutex_);
+    std::lock_guard lock(goal_mutex_);
     if (active_goal_ == gh)
     {
       // Stops the controller.
@@ -518,7 +518,7 @@ public:
     const ros::Time now = ros::Time::now();
 
     
-    std::scoped_lock lock(goal_mutex_);
+    std::lock_guard lock(goal_mutex_);
     if (!has_active_goal_)
       return;
 
